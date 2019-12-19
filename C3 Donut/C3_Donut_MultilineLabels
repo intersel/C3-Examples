@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.12/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.min.css"/>
+    <style>
+		.form-group {
+		  position: relative;
+		  padding-top: 1.5rem;
+		}
+
+		label {
+		  position: absolute;
+		  top: 0;
+		  font-size: var(--font-size-small);
+		  opacity: 1;
+		  transform: translateY(0);
+		  transition: all 0.2s ease-out;
+		}
+
+		input:placeholder-shown + label {
+		  opacity: 0;
+		  transform: translateY(1rem);
+		}
+		.content {
+			text-align: center;
+		}
+    </style>
+ </head>
+ <body>
+	 <h1>C3 / D3 Donut with formatted title et labels on multi lines</h1>
+   <h3>By Emmanuel Podvin - Intersel - www.intersel.fr</h3>
+   <div id="chart" style="float:left;width:400px"></div>
+		 <script>
+    var chart =
+    {
+      theC3Chart : null,
+      bindto: '#chart',
+      title:  `[
+                {"text":"My Donut","fill":"red","style":"font-size:30px;"}
+              , {"text":"is cool","fill":"green","style":"font-size:20px;"}
+              ]`,
+      labelFormat: `[
+                      {"text":ratio,"fill":"red","style":"font-size:18px;font-weight:bold;"}
+                    , {"text":"("+value+")","fill":"white","style":"font-size:10px;font-weight:bold;","dy":12}
+                    ]`,
+      getLabelFormat: function(value, ratio, id, me)
+      {
+         let rawratio = ratio;
+         ratio = d3.format(".0%")(ratio); // format ratio
+         return JSON.stringify(eval(me.labelFormat)); // used to pass values to the onrender function
+      },
+      init:function ()
+      {
+        let theChart = this;
+        this.theC3Chart = c3.generate({
+           bindto: this.bindto,
+           data: {
+             columns: [
+               ["data1", 70,40,20],
+      				 ["data2", 30,20],
+      				 ["data3", 5,30,20,50],
+             ],
+             type: 'donut'
+           },
+           donut: {
+              //title: function() {return JSON.stringify(this.title)},
+              //title:'mon donut est cool'
+              label: {
+    						 format: function(value, ratio, id)
+                 {
+                   return theChart.getLabelFormat(value, ratio, id, theChart)
+                 }
+              }
+           },
+           onrendered: function(){
+
+            theChart.changeTitle(theChart.title);
+
+            theChart.changeLabelFormat();
+
+      		}//end onrendered
+        });//end c3 generate chart
+      },//end init
+      changeTitle: function(newTitle)
+      {
+        var label = d3.select(this.bindto).select('text.c3-chart-arcs-title');
+
+         try {
+            myTitleData = JSON.parse(newTitle);
+					}catch(error) {
+            console.log(newTitle+"\ncan not be parsed as json...");
+						myTitleData = [{"text":newTitle,"fill":"green","style":"font-size:20px;"}];
+          };
+
+          label.html(''); // remove existant text
+
+           let tspanlist = label.selectAll('tspan')
+             .data(myTitleData)
+             .enter()
+             .append('tspan')
+             .text(d => d.text)
+             .attr('fill',d => d.fill)
+             .attr('style',d => d.style)
+             .attr('x',d => d.x?d.x:0)
+             .attr('dx',d => d.dx?d.dx:0)
+             .attr('dy',function(d,i){
+               return d.dy?d.dy:(20*i)
+             })
+           ;
+
+      },//end changeTitle
+
+      changeLabelFormat: function ()
+      {
+        d3.select(this.bindto).selectAll(".c3-chart-arc text").each(function(v) {
+          var label = d3.select(this);
+          var myLabel = label.html();
+
+          try {
+             myLabelData = JSON.parse(myLabel);
+
+             label.html(''); // remove existant text
+
+            let tspanlist = label.selectAll('tspan')
+              .data(myLabelData)
+              .enter()
+              .append('tspan')
+              .text(d => d.text)
+              .attr('fill',d => d.fill)
+              .attr('style',d => d.style)
+              .attr('x',d => d.x?d.x:0)
+              .attr('dx',d => d.dx?d.dx:0)
+              .attr('dy',function(d,i){
+                return d.dy?d.dy:(20*i)
+              })
+            ;
+
+          }catch(error) {};
+        });//end d3 select each
+      }//end changeLabelFormat
+    }//end chart
+
+    chart.init();
+
+
+   </script>
+
+	 <div class="content">
+			<p>
+			Format: [{"text":"atext","fill":"acolor","style":"astyle"}]
+			</p>
+			<p>
+				For Label Format, these variables are available: ratio, rawratio, value, id
+			</p>
+			<div class="form-group">
+			   <label for="Title">Title:</label>
+				 <textarea id="title" name="Title"
+          rows="10" cols="70" data-func="changeTitle">
+				 </textarea>
+			</div>
+			<div class="form-group">
+			   <label for="formatLabel">Label format:</label>
+				 <textarea id="formatLabel" name="formatLabel"
+          rows="10" cols="70" data-func="changeLabelFormat">
+				 </textarea>
+			</div>
+		</div>
+
+		<script>
+		$('#title').val(chart.title);
+		$('#formatLabel').val(chart.labelFormat);
+
+		$('input,textarea').keyup(function (e) {
+				//if (e.keyCode === 13) {
+					 let submitInput = $(e.currentTarget);
+					 if (submitInput.attr('data-func') == "changeTitle") chart.changeTitle(submitInput.val());
+					 else if (submitInput.attr('data-func') == "changeLabelFormat")
+					 {
+						 chart.labelFormat=submitInput.val();
+						 chart.init();
+					 }
+				//}
+			});
+
+		</script>
+ </body>
+</html>
